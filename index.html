@@ -1,0 +1,919 @@
+<html>
+    <head>
+        <title>Pink Trombone Editor</title>
+        <script src="pink-trombone.min.js" type="module"></script>
+    </head>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #container {
+            font-size: 21.5px;
+
+            width: 100%;
+            height: 100%;
+            
+            display: grid;
+
+            grid-template-rows: 65% 1fr;
+            grid-template-columns: 50% 1fr;
+        }
+
+        #controls {
+            grid-template-rows: 1;
+            grid-template-columns: 1;
+        }
+
+        #pinkTromboneContainer {
+            grid-template-rows: 1;
+            grid-template-columns: 2;
+        }
+
+        #timeline {
+            grid-column: 1 / span 2;
+            grid-row: 2;
+
+            background-color: darkkhaki;
+        }
+
+        input {
+            width: 50px;
+        }
+
+        #enablePitch::after {
+            content: "Enable Pitch";
+        }
+        #enablePitch[data-selected]::after {
+            content: "Disable Pitch";
+        }
+
+        #enablePhoneme::after {
+            content: "Enable Phoneme";
+        }
+        #enablePhoneme[data-selected]::after {
+            content: "Disable Phoneme";
+        }
+    </style>
+
+    <script>
+        const phonemes = {
+            æ : {
+                index : 14.93,
+                diameter : 2.78,
+                isTongue : true,
+                hint : "pAt",
+            },
+            ɑ : {
+                index : 2.3,
+                diameter : 12.75,
+                isTongue : true,
+                hint : "pArt",
+            },
+            ɒ : {
+                index : 12,
+                diameter : 2.05,
+                isTongue : true,
+                hint : "pOt",
+            },
+            ɔ : {
+                index : 17.7,
+                diameter : 2.05,
+                isTongue : true,
+                hint : "pOrt",
+            },
+            ɪ : {
+                index : 26.11,
+                diameter : 2.87,
+                isTongue : true,
+                hint : "pIt",
+            },
+            i : {
+                index : 27.2,
+                diameter : 2.2,
+                isTongue : true,
+                hint : "pEAt",
+            },
+            e : {
+                index : 19.4,
+                diameter : 3.43,
+                isTongue : true,
+                hint : "pEt",
+            },
+            ʌ : {
+                index : 17.8,
+                diameter : 2.46,
+                isTongue : true,
+                hint : "pUt",
+            },
+            u : {
+                index : 22.8,
+                diameter : 2.05,
+                isTongue : true,
+                hint : "pOOt",
+            },
+            ə : {
+                index : 20.7,
+                diameter : 2.8,
+                isTongue : true,
+                hint : "pErt",
+            },
+
+            // FRICATIVES
+            ʒ : {
+                index : 31,
+                diameter : 0.6,
+                voiceless : 'ʃ',
+                hint : "pleaSure",
+            },
+            z : {
+                index : 36,
+                diameter : 0.6,
+                voiceless : 's',
+                hint : "Zoo",
+            },
+            v : {
+                index : 41,
+                diameter : 0.5,
+                voiceless : 'f',
+                hint : "Very",
+            },
+
+            // STOPS
+            g : {
+                index : 20,
+                diameter : 0,
+                voiceless : 'k',
+                hint : "Go",
+            },
+            d : {
+                index : 36,
+                diameter : 0,
+                voiceless : 't',
+                hint : "Den",
+            },
+            b : {
+                index : 41,
+                diameter : 0,
+                voiceless : 'p',
+                hint : "Bad",
+            },
+
+            // NASALS
+            ŋ : {
+                index : 20,
+                diameter : -1,
+                hint : "haNg",
+            },
+            n : {
+                index : 36,
+                diameter : -1,
+                hint : "Not",
+            },
+            m : {
+                index : 41,
+                diameter : -1,
+                hint : "woMan",
+            },
+
+            // ETC
+            w : {
+                index : 41,
+                diameter : 0.7,
+                hint : "Wow",
+            },
+            l : {
+                index : 38,
+                diameter : 1.2,
+                hint : "Like",
+            },
+        };
+
+        for(let symbol in phonemes) {
+            if(phonemes[symbol].isTongue == undefined)
+                phonemes[symbol].type = (phonemes[symbol].index > 20)?
+                    "front" :
+                    "back";
+
+            const voicelessSymbol = phonemes[symbol].voiceless;
+
+            if(voicelessSymbol !== undefined) {
+                phonemes[voicelessSymbol] = Object.assign({}, phonemes[symbol]);
+
+                phonemes[voicelessSymbol].isVoiceless = true;
+            }
+
+            phonemes[symbol].isVoiceless = false;
+        }
+
+        const setPhoneme = (symbol, delay = 0, period = 0) => {
+            const phoneme = phonemes[symbol];
+
+            const constrictionFlags = {
+                tongue : false,
+                back : false,
+                front : false,
+            };
+
+            if(phoneme.isTongue) {
+                constrictionFlags.tongue = true;
+            }
+            else {
+                constrictionFlags[phoneme.type] = true;
+            }
+
+            const voiceness = phoneme.isVoiceless?
+                0.1 :
+                0.9 ;
+
+            setVoiceness(voiceness, delay, period);
+
+            for(let type in constrictionFlags) {
+                const constriction = constrictions[type] || pinkTromboneElement[type];
+                
+                ["index", "diameter"].forEach(parameter => {
+                    var value = constriction[parameter].value;
+                    if(constrictionFlags[type]) {
+                        value = phoneme[parameter];
+                    }
+                    else {
+                        if(parameter == "diameter")
+                            value = 5;
+                    }
+                    
+                    setTimeout(() => {
+                        constriction[parameter].linearRampToValueAtTime(value, pinkTromboneElement.audioContext.currentTime + period);
+                    }, delay);
+                });
+            }
+        }
+    </script>
+
+    <body>
+        <iframe src="pitch-detector" hidden></iframe>
+        <script>
+            const pitchDetector = document.querySelector(`iframe[src="pitch-detector"]`);
+            var pitchDetection = false;
+
+            window.addEventListener("click", event => {
+                const audioContext = pitchDetector.contentWindow.audioContext;
+                if(audioContext.state !== "running")
+                    audioContext.resume();
+            });
+
+            pitchDetector.contentWindow.getPitchCallback = (error, frequency) => {
+                const enablePitch = document.getElementById("enablePitch");
+                
+                if(enablePitch.disabled)
+                    document.getElementById("enablePitch").disabled = false
+                console.log(frequency);
+                if(pitchDetection && frequency) {
+                    pinkTromboneElement.parameters.frequency.value = frequency;
+                    const pinkTrombonePhoneme = timeline.querySelector(`pink-trombone-phoneme[data-selected]`);
+                    if(pinkTrombonePhoneme !== null) {
+                        pinkTrombonePhoneme.parameters.frequency = frequency;
+                        pinkTrombonePhoneme.parameters.timeline.frequency = (frequency-timelineFrequencies.from)/(timelineFrequencies.to - timelineFrequencies.from);
+                        pinkTrombonePhoneme.update();
+                    }
+                    update();
+                }
+            }
+        </script>
+
+        <iframe src="phoneme-classifier" hidden></iframe>
+        <script>
+            const phonemeDetector = document.querySelector(`iframe[src="phoneme-classifier"]`);
+            var phonemeDetection = false;
+
+            var initializedPhonemeDetector = false;
+
+            window.addEventListener("click", event => {
+                if(!initializedPhonemeDetector) {
+                    initializedPhonemeDetector = true;
+                    phonemeDetector.contentWindow.init();
+                    document.getElementById("enablePhoneme").disabled = false;
+                }
+            });
+
+            phonemeDetector.contentWindow.listen = (phonemeProbabilities) => {
+                if(phonemeDetection) {
+                    const symbol = Object.keys(phonemeProbabilities).reduce((mostLikelySymbol, currentSymbol) => {
+                        return (phonemeProbabilities[mostLikelySymbol] > phonemeProbabilities[currentSymbol])?
+                            mostLikelySymbol :
+                            currentSymbol;
+                    }, '_background_noise_');
+
+                    console.log(symbol);
+
+                    if(phonemes[symbol[0]] !== undefined) {
+                        setPhoneme(symbol[0], 0, 0.5);
+                        pinkTromboneElement.parameters.intensity.linearRampToValueAtTime(0, pinkTromboneElement.audioContext.currentTime);
+                        pinkTromboneElement.parameters.intensity.linearRampToValueAtTime(1, pinkTromboneElement.audioContext.currentTime+0.5);
+                        
+                        setTimeout(() => {
+                            pinkTromboneElement.parameters.intensity.linearRampToValueAtTime(1, pinkTromboneElement.audioContext.currentTime);
+                            pinkTromboneElement.parameters.intensity.linearRampToValueAtTime(0, pinkTromboneElement.audioContext.currentTime+0.5);
+                        }, 500);
+
+                        phonemeDetection = false;
+                        delete document.getElementById("enablePhoneme").dataset.selected;
+                    }
+                }
+            }
+        </script>
+
+        <style>
+            [data-panel] {
+                float: left;
+                padding-left: 10px;
+            }
+
+            hr {
+                clear: both;
+            }
+        </style>
+
+        <div id="container">
+            <div id="controls">
+
+                <div data-panel="file">
+                    File
+                    <br>
+                    <label>
+                        Load: <select id="load"></select>
+                    </label>
+                    |
+                    <button id="save">Save As...</button>
+                </div>
+
+                <hr>
+
+                <div data-panel="tract">
+                    Tract
+                    <br>
+                    <label>
+                        frequency: <input step="10" type="number" data-parameter="frequency">
+                    </label>
+                    |
+                    <label>
+                        tenseness: <input step="0.1" type="number" data-parameter="tenseness">
+                    </label>
+                    |
+                    <label>
+                        intensity: <input step="0.1" type="number" data-parameter="intensity">
+                    </label>
+                    |
+                    <label>
+                        loudness: <input step="0.1" type="number" data-parameter="loudness">
+                    </label>
+                    |
+                    <label>
+                        Voiceness: <input step="0.1" value='0' type="number" min="0.1" max="0.9" id="voicenessInput">
+                    </label>
+
+                    <script>
+                        document.getElementById("voicenessInput").addEventListener("input", event => {
+                            const voiceness = Number(event.target.value);
+                            setVoiceness(voiceness);
+                            update();
+                        })
+                    </script>
+                </div>
+
+                <hr>
+
+                <div data-panel="phoneme">
+                    Phoneme
+                    <br>
+
+                    <label>
+                        Presets: <select id="phonemeSelect">
+                            <option value="">--select--</option>
+                        </select>
+                    </label>
+                    <script>
+
+                        for(let symbol in phonemes) {
+                            document.getElementById("phonemeSelect").innerHTML += `
+                                <option value="${symbol}">${symbol} (${phonemes[symbol].hint})</option>
+                            `;
+                        }
+
+                        document.getElementById("phonemeSelect").addEventListener("input", event => {
+                            setPhoneme(event.target.value);
+                            event.target.value = "";
+                        });
+                    </script>
+                    |
+                    <button disabled id="enablePitch"></button>
+                    |
+                    <button disabled id="enablePhoneme"></button>
+                    <script>
+                        ["enablePitch", "enablePhoneme"].forEach(id => {
+                            document.getElementById(id).addEventListener("click", event => {
+                                if(event.target.dataset.selected == undefined)
+                                    event.target.dataset.selected = '';
+                                else
+                                    delete event.target.dataset.selected;
+                                
+                                if(id == "enablePitch")
+                                    pitchDetection = event.target.dataset.selected == '';
+                                else
+                                    phonemeDetection = event.target.dataset.selected == '';
+                            });
+                        });
+                    </script>
+                </div>
+                
+                <hr>
+
+                <div data-panel="back-constriction">
+                    Back Constriction
+                    <br>
+                    <label>
+                        index: <input step="0.5" type="number" min="11" max="16" data-constriction="back" data-parameter="index">
+                    </label>
+                    |
+                    <label>
+                        diameter: <input step="0.5" type="number" data-constriction="back" data-parameter="diameter">
+                    </label>
+                </div>
+
+                <div data-panel="tongue">
+                    Tongue
+                    <br>
+    
+                    <label>
+                        index: <input step="0.5" min="12" max="29" type="number"  data-constriction="tongue" data-parameter="index">
+                    </label>
+                    |
+                    <label>
+                        diameter: <input step="0.5" type="number" data-constriction="tongue" data-parameter="diameter">
+                    </label>
+                </div>
+
+                <div data-panel="front-constriction">
+                    Front Constriction
+                    <br>
+                    <label>
+                        index: <input type="number" step="0.5" min="28" max="44" data-constriction="front" data-parameter="index">
+                    </label>
+                    |
+                    <label>
+                        diameter: <input type="number" step="0.5" data-constriction="front" data-parameter="diameter">
+                    </label>
+                </div>
+
+                <hr>
+
+                <div data-panel="vibrato">
+                    Vibrato
+                    <br>
+
+                    <label>
+                        Frequency: <input data-vibrato="frequency" data-parameter="vibrato" type="number">
+                    </label>
+                    |
+                    <label>
+                        Gain: <input data-vibrato="gain" data-parameter="vibrato" type="number">
+                    </label>
+                    |
+                    <label>
+                        Wobble: <input data-vibrato="wobble" data-parameter="vibrato" type="number">
+                    </label>
+                </div>
+
+                <hr>
+                
+                <div data-panel="timeline">
+                    Timeline
+                    <br>
+    
+                    <button id="playButton" onclick="play()">Play</button>
+                    |
+                    <label>
+                        period: <input type="number" value='2' min="0" max="10" data-timeline="period" onchange="timelinePeriod = Number(this.value)">
+                    </label>
+                    |
+                    <label>
+                        frequency: <input value="0" type="number" min="0" data-timeline="frequencyFrom" onchange="frequency.from = Number(this.value)"> to <input value="500" type="number" max="2000" data-timeline="frequencyTo" onchange="frequency.to = Number(this.value)">
+                    </label>
+
+                    <script>
+                        const timelinePeriodInput = document.querySelector(`input[data-timeline="period"]`);
+                        const timelineFrequencyInputs = {
+                            from : document.querySelector(`input[data-timeline="frequencyFrom"]`),
+                            to : document.querySelector(`input[data-timeline="frequencyTo"]`),
+                        }
+
+                        var timelinePeriod = Number(timelinePeriodInput.value);
+                        var timelineFrequencies = {
+                            from : Number(timelineFrequencyInputs.from.value),
+                            to : Number(timelineFrequencyInputs.to.value),
+                        };
+                    </script>
+                </div>
+
+                <div data-panel="key">
+                    Key
+                    <br>
+    
+                    <label>
+                        Time: <input data-key="time" type="number">
+                    </label>
+                    |
+                    <label>
+                        Frequency: <input data-key="frequency" type="number">
+                    </label>
+                    |
+                    <button data-key="set" id="setKey">Set</button>
+                    |
+                    <button data-key="delete" id="deleteKey">Delete</button>
+
+                    <script>
+                        const keyTimeInput = document.querySelector(`[data-key="time"]`);
+                        keyTimeInput.update = () => {
+                            keyTimeInput.value = timeline.querySelector(`pink-trombone-phoneme[data-selected]`).parameters.timeline.time;
+                        };
+                        keyTimeInput.addEventListener("input", event => {
+                            timeline.querySelector(`pink-trombone-phoneme[data-selected]`).parameters.timeline.time = Number(event.target.value);
+                        });
+
+                        const keyFrequencyInput = document.querySelector(`[data-key="frequency"]`);
+                        keyFrequencyInput.update = () => {
+                            keyFrequencyInput.value = timeline.querySelector(`pink-trombone-phoneme[data-selected]`).parameters.timeline.frequency;
+                        };
+                        keyFrequencyInput.addEventListener("input", event => {
+                            timeline.querySelector(`pink-trombone-phoneme[data-selected]`).parameters.timeline.frequency = Number(event.target.value);
+                        });
+
+                        const setKey = document.querySelector(`[data-key="set"]`);
+                        setKey.addEventListener("click", event => {
+                            const key = timeline.querySelector(`pink-trombone-phoneme[data-selected]`);
+                            key.get();
+                            key.update();
+                        });
+
+                        const deleteKey = document.querySelector(`[data-key="delete"]`);
+                        deleteKey.addEventListener("click", event => {
+                            const key = timeline.querySelector(`pink-trombone-phoneme[data-selected]`);
+                            timeline.removeChild(key);
+                        });
+                    </script>
+                </div>
+                
+                <hr>
+
+            </div>
+
+            <div id="pinkTromboneContainer">
+                <pink-trombone></pink-trombone>
+            </div>
+
+            <div id="timeline">
+
+            </div>
+        </div>
+    </body>
+
+    <script>
+        const pinkTromboneElement = document.querySelector("pink-trombone");
+        const constrictions = {
+            front : undefined,
+            back : undefined,
+        };
+
+        pinkTromboneElement.addEventListener("load", event => {
+            pinkTromboneElement.setAudioContext()
+                .then(pinkTrombone => {
+                    constrictions.front = pinkTromboneElement.newConstriction(39, 4);
+                    setTimeout(() => {
+                        constrictions.back = pinkTromboneElement.newConstriction(11, 3);
+                        setupPinkTrombone();
+                    }, 10);
+                    
+                    pinkTromboneElement.enableUI();
+                    pinkTromboneElement.startUI();
+
+                    pinkTromboneElement.connect(pinkTromboneElement.audioContext.destination);
+
+                    pinkTromboneElement.parameters.intensity.value = 0;
+                    pinkTromboneElement.parameters.vibrato.frequency.value = 0;
+                });
+        });
+    
+        function setVoiceness(voiceness, delay = 0, period = 0) {
+            const tenseness = 1 - Math.cos((voiceness) * Math.PI * 0.5);
+            const loudness = Math.pow(tenseness, 0.25);
+                        
+            setTimeout(() => {
+                const endTime = pinkTromboneElement.audioContext.currentTime + period;
+
+                pinkTromboneElement.tenseness.linearRampToValueAtTime(tenseness, endTime);
+                pinkTromboneElement.loudness.linearRampToValueAtTime(loudness, endTime);
+            }, delay);
+        }
+    </script>
+
+    <script>
+        const setupPinkTrombone = () => {
+            document.querySelectorAll(`input[data-parameter]`).forEach(input => {
+                var parameter;
+    
+                if(input.dataset.constriction !== undefined) {
+                    const constriction = (input.dataset.constriction == "tongue")?
+                        pinkTromboneElement.tongue :
+                        constrictions[input.dataset.constriction];
+                    parameter = constriction[input.dataset.parameter];
+                }
+                else if(input.dataset.parameter == "vibrato") {
+                    parameter = pinkTromboneElement.parameters.vibrato[input.dataset.vibrato];
+                }
+                else {
+                    parameter = pinkTromboneElement.parameters[input.dataset.parameter];
+                }
+                
+                input.update = () => {
+                    input.value = parameter.value;
+                }
+                input.update();
+
+                input.addEventListener("input", event => {
+                    parameter.value = Number(input.value);
+                });
+            });
+        }
+
+        const update = () => {
+            document.querySelectorAll(`input[data-parameter]`).forEach(input => {
+                input.update();
+            });
+
+            const key = timeline.querySelector(`pink-trombone-phoneme[data-selected]`);
+            if(key !== null) {
+                keyFrequencyInput.update();
+                keyTimeInput.update();
+            }
+        }
+    </script>
+
+    <style>
+        pink-trombone-phoneme {
+            position: absolute;
+            cursor: default;
+            user-select: none;
+        }
+
+        pink-trombone-phoneme[data-selected] {
+            color : green;
+        }
+
+    </style>
+
+    <script>
+        // CUSTOM ELEMENT
+        class PinkTrombonePhoneme extends HTMLElement {
+            constructor() {
+                super();
+
+                this.parameters = {
+                    timeline : {},
+                };
+                this.load();
+
+                this.addEventListener("click", event => {
+                    if(event.altKey) {                        
+                        if(this.dataset.selected !== undefined) {
+                            timeline.querySelectorAll(`pink-trombone-phoneme`).forEach(element => delete element.dataset.selected);
+                        }
+                        else {
+                            timeline.querySelectorAll(`pink-trombone-phoneme`).forEach(element => delete element.dataset.selected);
+                            this.dataset.selected = '';
+                            this.set();
+                        }
+                        update();
+                    }
+                });
+
+                this.addEventListener("mousedown", event => {
+                    this.dataset.draggable = '';
+                });
+                window.addEventListener("mousemove", event => {
+                    if(this.dataset.draggable !== undefined && event.target == timeline) {
+                        this.parameters.timeline.time = event.offsetX / timeline.clientWidth;
+                        this.parameters.timeline.frequency = 1 - (event.offsetY / timeline.clientHeight);
+                        const frequency = (this.parameters.timeline.frequency * (timelineFrequencies.to-timelineFrequencies.from)) + timelineFrequencies.from;
+                        this.parameters.frequency = frequency;
+                        if(this.dataset.selected !== undefined) {
+                            pinkTromboneElement.parameters.frequency.value = frequency;
+                        }
+                        this.update();
+                        update();
+                    }
+                });
+                window.addEventListener("mouseup", event => {
+                    delete this.dataset.draggable;
+                });
+            }
+
+            _set(audioParam, value, endTime) {
+                audioParam.linearRampToValueAtTime(audioParam.value, pinkTromboneElement.audioContext.currentTime);
+                audioParam.linearRampToValueAtTime(value, endTime);
+            }
+
+            set(delay = 0, period = 0) {
+                setTimeout(() => {
+                    const endTime = pinkTromboneElement.audioContext.currentTime + period;
+                    
+                    ["frequency", "tenseness", "loudness", "intensity"].forEach(parameter => {
+                        this._set(pinkTromboneElement.parameters[parameter], this.parameters[parameter], endTime);
+                    });
+                    
+                    ["frequency", "wobble", "gain"].forEach(parameter => {
+                        this._set(pinkTromboneElement.parameters.vibrato[parameter], this.parameters.vibrato[parameter], endTime);
+                    });
+
+                    ["index", "diameter"].forEach(parameter => {
+                        this._set(pinkTromboneElement.tongue[parameter], this.parameters.tongue[parameter], endTime);
+                        this._set(constrictions.front[parameter], this.parameters.constrictions.front[parameter], endTime);
+                        this._set(constrictions.back[parameter], this.parameters.constrictions.back[parameter], endTime);
+                    });
+
+                    setTimeout(() => {
+                        update();
+                    }, period/1000);
+                }, delay);
+            }
+            get() {
+                Object.assign(this.parameters, {
+                    frequency : pinkTromboneElement.parameters.frequency.value,
+                    tenseness : pinkTromboneElement.parameters.tenseness.value,
+                    intensity : pinkTromboneElement.parameters.intensity.value,
+                    loudness : pinkTromboneElement.parameters.loudness.value,
+
+                    vibrato : {
+                        frequency : pinkTromboneElement.parameters.vibrato.frequency.value,
+                        wobble : pinkTromboneElement.parameters.vibrato.wobble.value,
+                        gain : pinkTromboneElement.parameters.vibrato.gain.value,
+                    },
+
+                    tongue : {
+                        index : pinkTromboneElement.tongue.index.value,
+                        diameter : pinkTromboneElement.tongue.diameter.value,
+                    },
+
+                    constrictions : {
+                        front : {
+                            index : constrictions.front.index.value,
+                            diameter : constrictions.front.diameter.value,
+                        },
+                        back : {
+                            index : constrictions.back.index.value,
+                            diameter : constrictions.back.diameter.value
+                        },
+                    }
+                });
+            }
+
+            
+            save() {
+                this.dataset.parameters = JSON.stringify(this.parameters)
+            }
+            load() {
+                if(this.dataset.parameters !== undefined)
+                    Object.assign(this.parameters, JSON.parse(this.dataset.parameters));
+                else
+                    this.get();
+            }
+            update() {
+                this.style.left = (this.parameters.timeline.time * timeline.clientWidth) + 'px';
+                this.style.top = (timeline.offsetTop + ((1-this.parameters.timeline.frequency) * timeline.clientHeight)) + 'px';
+                this.style.fontSize = `${24 + (this.parameters.intensity*24)}px`;
+            }
+
+            static get elements() {
+                return Array.from(document.querySelectorAll('pink-trombone-phoneme'));
+            }
+
+            static load() {
+                this.elements.forEach(element => element.load());
+            }
+            static save() {
+                this.elements.forEach(element => element.save());
+            }
+            static update() {
+                this.elements.forEach(element => element.update());
+            }
+        }
+
+        if(document.createElement("pink-trombone-phoneme").constructor.name == "HTMLElement")
+            customElements.define("pink-trombone-phoneme", PinkTrombonePhoneme);
+        
+    </script>
+
+    <script>
+        const timeline = document.getElementById("timeline");
+
+        timeline.addEventListener("click", event => {
+            if(event.ctrlKey) {
+                const innerText = window.prompt("create a phoneme name");
+
+                if(typeof innerText == "string" && innerText.length > 0) {
+                    const pinkTrombonePhoneme = document.createElement("pink-trombone-phoneme");
+                        pinkTrombonePhoneme.innerText = innerText;
+                    
+                    pinkTrombonePhoneme.parameters.timeline.time = event.offsetX / timeline.clientWidth;
+                    pinkTrombonePhoneme.parameters.timeline.frequency = 1 - (event.offsetY / timeline.clientHeight);
+                    pinkTrombonePhoneme.update();
+
+                    timeline.appendChild(pinkTrombonePhoneme);
+                }
+            }
+        });
+
+        const load = (key) => {
+            timeline.innerHTML = localStorage.getItem(key);
+            PinkTrombonePhoneme.load();
+        };
+        const save = (key) => {
+            PinkTrombonePhoneme.save();
+            localStorage.setItem(key, timeline.innerHTML);
+        }
+
+
+        const saveButton = document.getElementById("save");
+        saveButton.addEventListener("click", event => {
+            const key = window.prompt("assign a name:");
+            save(key);
+            setupLoad();
+        });
+
+        const loadSelect = document.getElementById("load");
+        loadSelect.addEventListener("input", event => {
+            load(event.target.value);
+            event.target.value = "";
+        });
+
+        const setupLoad = () => {
+            loadSelect.innerHTML = `
+                <option value="">--select--</option>
+            `;
+            for(let key in localStorage) {
+                const value = localStorage[key];
+                if(typeof value == "string") {
+                    loadSelect.innerHTML += `
+                        <option value="${key}">${key}</option>
+                    `;
+                }
+            }
+        }
+
+        var testKey;
+        window.addEventListener("load", event => {
+            setupLoad();
+            
+            if(false)
+            {
+                // Test
+                testKey = document.createElement("pink-trombone-phoneme");
+                testKey.innerText = "Hello";
+                testKey.get();
+
+                timeline.appendChild(testKey);
+            }
+        });
+    </script>
+
+    <script>
+        const play = () => {
+            Array.from(timeline.querySelectorAll(`pink-trombone-phoneme`))
+                .sort((a, b) => a.parameters.timeline.time - b.parameters.timeline.time)
+                .forEach((pinkTrombonePhoneme, index, pinkTrombonePhonemes) => {
+                    /*
+                    const delay = pinkTrombonePhoneme.parameters.timeline.time * timelinePeriod * 1000;
+                    const nextTime = (pinkTrombonePhonemes[index+1] == undefined)?
+                        1 :
+                        pinkTrombonePhonemes[index+1].parameters.timeline.time;
+
+                    const period = (nextTime - pinkTrombonePhoneme.parameters.timeline.time) * timelinePeriod;
+
+                    pinkTrombonePhoneme.set(delay, period);
+                    */
+
+                    // delay is the previous phoneme position
+                    // period is the distance from the previous to the current
+                    const previousTime = (pinkTrombonePhonemes[index-1] == undefined)?
+                        0 :
+                        pinkTrombonePhonemes[index-1].parameters.timeline.time;
+                    
+                    const period = (pinkTrombonePhoneme.parameters.timeline.time - previousTime) * timelinePeriod;
+
+                    const delay = previousTime * timelinePeriod * 1000;
+
+                    pinkTrombonePhoneme.set(delay, period);
+                });
+        }
+    </script>
+</html>
