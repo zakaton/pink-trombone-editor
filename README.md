@@ -6,7 +6,7 @@ Click anywhere on the screen to start the various audio contexts (there's 3: one
  
 ## Basic Controls
 - ctrl+click on the timeline to add a key phoneme
-- alt-click a key phoneme to select it
+- alt+click a key phoneme to select it
 - after selecting a phoneme, you can change values and select "set" to apply changes
 
 ## Creating your own Teachable Machine to detect phonemes
