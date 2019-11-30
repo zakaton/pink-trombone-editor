@@ -1,5 +1,5 @@
 # Pink Trombone Timeline Editor
-Video - https://twitter.com/ConcreteSciFi/status/1200218613669449728
+Video - https://twitter.com/ConcreteSciFi/status/1200218613669449728  
 Live Demo - https://zakaton.github.io/pink-trombone-editor/
  
 ## Setup
