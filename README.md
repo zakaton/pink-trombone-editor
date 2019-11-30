@@ -1,5 +1,6 @@
 # Pink Trombone Timeline Editor
 Video - https://twitter.com/ConcreteSciFi/status/1200218613669449728
+Live Demo - https://zakaton.github.io/pink-trombone-editor/
  
 ## Setup
 Click anywhere on the screen to start the various audio contexts (there's 3: one for the pink trombone, one for the pitch detector, and one for the phoneme classifier. The latter 2 each use different versions of TensorFlow so I had to put them in their own iFrames)
